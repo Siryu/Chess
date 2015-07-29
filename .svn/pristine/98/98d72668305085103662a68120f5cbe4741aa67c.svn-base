@@ -1,0 +1,95 @@
+package Control;
+
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.util.Observable;
+
+public class MouseControl extends Observable implements MouseMotionListener, MouseListener
+{
+	private int lastX;
+	private int lastY;
+	private int lastClickX;
+	private int lastClickY;
+	
+	
+	public int getLastX()
+	{
+		return lastX;
+	}
+	public void setLastX(int lastX)
+	{
+		this.lastX = lastX;
+	}
+	public int getLastY()
+	{
+		return lastY;
+	}
+	public void setLastY(int lastY)
+	{
+		this.lastY = lastY;
+	}
+	public int getLastClickX()
+	{
+		return lastClickX;
+	}
+	public void setLastClickX(int lastClickX)
+	{
+		this.lastClickX = lastClickX;
+	}
+	public int getLastClickY()
+	{
+		return lastClickY;
+	}
+	public void setLastClickY(int lastClickY)
+	{
+		this.lastClickY = lastClickY;
+	}
+	@Override
+	public void mouseClicked(MouseEvent arg0)
+	{
+		this.setLastClickX(arg0.getX());
+		this.setLastClickY(arg0.getY());
+		this.setChanged();
+	    this.notifyObservers();
+	}
+	@Override
+	public void mouseEntered(MouseEvent arg0)
+	{
+		// TODO Auto-generated method stub
+		
+	}
+	@Override
+	public void mouseExited(MouseEvent arg0)
+	{
+		// TODO Auto-generated method stub
+		
+	}
+	@Override
+	public void mousePressed(MouseEvent arg0)
+	{
+		// TODO Auto-generated method stub
+		
+	}
+	@Override
+	public void mouseReleased(MouseEvent arg0)
+	{
+		// TODO Auto-generated method stub
+		
+	}
+	@Override
+	public void mouseDragged(MouseEvent arg0)
+	{
+		// TODO Auto-generated method stub
+		
+	}
+	@Override
+	public void mouseMoved(MouseEvent arg0)
+	{
+		this.setLastX(arg0.getX());
+		this.setLastY(arg0.getY());
+		//this.setChanged();
+	    //this.notifyObservers();
+		
+	}
+}

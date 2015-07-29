@@ -1,0 +1,57 @@
+package View;
+
+import java.awt.Dimension;
+
+import javax.swing.JFrame;
+
+import Control.ChessManager;
+import Control.MouseControlClick;
+
+public class ChessDisplayGUI
+{
+	ChessManager cm;
+	ChessBoard board;
+	
+	
+	public ChessDisplayGUI(ChessManager cm)
+	{
+		this.cm = cm;
+		initComponents();
+	}
+	
+	public void initComponents()
+	{
+		JFrame frame = new JFrame("Chess Master Of Chess");
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frame.setPreferredSize(new Dimension((ChessBoard.squareDimension * ChessManager.WIDTH) + 50, 
+				(ChessBoard.squareDimension * ChessManager.HEIGHT) + 75)); 
+		//frame.setPreferredSize(new Dimension(815, 835));
+		frame.setResizable(false);
+		MouseControlClick mouse = new MouseControlClick();
+		
+		// why this....?? frame with mouse listener?  
+		// made the panel's clicks off by converting.
+		// i can't see a need...
+		
+		// added a MouseControl2 that updates on moves for the popup.
+		// changed the update to the chessboard that redraws and sets everything on click update
+		
+		// how to fix the shadow left from the popup when it's done? --  need a redraw somewhere afterwards on the board.
+		// popup can lose focus and move changed... cancel this option
+				
+		//frame.addMouseListener(mouse);
+		//frame.addMouseMotionListener(mouse);
+		
+		board = new ChessBoard(cm, mouse);
+		//board.addMouseListener(new MouseControl());
+		frame.add(board);
+		
+		frame.setVisible(true);
+		frame.pack();
+	}
+	
+	public void repaint()
+	{
+		board.repaint();
+	}
+}

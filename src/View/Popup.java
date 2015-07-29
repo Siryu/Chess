@@ -1,0 +1,138 @@
+package View;
+
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Point;
+import java.util.ArrayList;
+import java.util.Observable;
+import java.util.Observer;
+
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+
+import Control.ChessManager;
+import Control.MouseControlClick;
+import Control.MouseControlMovement;
+import Helper.Location;
+import Model.Bishop;
+import Model.Knight;
+import Model.Piece;
+import Model.Queen;
+import Model.Rook;
+
+public class Popup extends JPanel implements Observer {
+	
+	private static final long serialVersionUID = 1L;
+	private ArrayList<PieceSelector> options;
+	private final int size = 100;
+	private final int xOffset = 20;
+	private final int yOffset = 20;
+	private PieceSelector currentHighlight;
+	private JDialog frame;
+	private String selected = null;
+	private boolean hasAsked = false;
+	private boolean color;
+	private Location start;
+	private Location end;
+	private ChessManager cm;
+
+	public Popup() {
+		
+	}
+	
+	public synchronized String askPiece(boolean color, Location start, Location end, ChessManager cm) {
+		if(!hasAsked) {
+			this.color = color;
+			this.start = start;
+			this.end = end;
+			this.cm = cm;
+			hasAsked = true;
+			options = new ArrayList<>();
+			Piece[] choices = {new Knight(color), new Bishop(color), new Rook(color), new Queen(color)};
+			char[] choiceVals = {'n', 'b', 'r', 'q'};
+			int x = xOffset;
+			int y = yOffset + 20;
+			for(int i = 0; i < choices.length; i++) {
+				options.add(new PieceSelector(x, y, size, choices[i].getPiecePicture(), choiceVals[i]));
+				x += size + 10;
+			}
+			showDialog();
+		}
+		
+		return selected;
+	}
+	
+	private synchronized void showDialog() {
+		// Mouse control on JFrame, coordinates off again... changed to put mouse controls on this panel
+		frame = new JDialog();
+		MouseControlMovement m = new MouseControlMovement();
+		this.addMouseListener(m);
+		this.addMouseMotionListener(m);
+		m.addObserver(this);
+		frame.add(this);
+		frame.setMinimumSize(new Dimension(500, 200));
+		frame.setModal(true);
+		frame.setVisible(true);
+		frame.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
+		repaint();
+	}
+	
+	@Override
+	public synchronized void paintComponent(Graphics g) {
+		g.setColor(Color.WHITE);
+		g.fillRect(0, 0, this.getWidth(), this.getHeight());
+		g.setColor(Color.BLACK);
+		g.drawString("Please choose a piece to promote your pawn:", xOffset, yOffset);
+		for(PieceSelector p : options) {
+			g.setColor(p.getColor());
+			g.fillRoundRect(p.getX(), p.getY(), size, size, 20, 20);
+			g.drawImage(p.getImage(), p.getX(), p.getY(), size, size, null);
+		}
+	}
+	
+	private void sendMove() {
+		char piececolor = color ? 'd' : 'l';
+		StringBuilder moveString = new StringBuilder();
+		moveString.append(start.toString() + " " + selected + piececolor + end.toString());
+		if(cm.getPieces().get(end) != null) {
+			moveString.append("*");
+		}
+		cm.recievePlay(moveString.toString());
+		cm.redrawGUI();
+	}
+
+	@Override
+	public synchronized void update(Observable o, Object arg1) {
+		MouseControlClick mc = (MouseControlClick) o;
+		if(mc.newClick()) {
+			for(PieceSelector p : options) {
+				if(p.contains(new Point(mc.getLastX(), mc.getLastY()))) {
+					frame.setModal(false);
+					frame.setVisible(false);
+					selected = "" + p.getType();
+					sendMove();
+				}
+			}
+		}
+		PieceSelector oldHighlight = currentHighlight;
+		boolean contained = false;
+		for(PieceSelector p : options) {
+			if(p.contains(new Point(mc.getLastX(), mc.getLastY()))) {
+				currentHighlight = p;
+				p.setColor(Color.LIGHT_GRAY);
+				contained = true;
+			} else {
+				p.setColor(Color.WHITE);
+			}
+		}
+		if(!contained) {
+			currentHighlight = null;
+		}
+		if(oldHighlight != currentHighlight) {
+			repaint();
+		}
+	}
+
+}

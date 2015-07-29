@@ -1,0 +1,40 @@
+package View;
+
+import java.awt.Dimension;
+
+import javax.swing.JFrame;
+
+import Control.ChessManager;
+
+public class ChessDisplayGUI
+{
+	ChessManager cm;
+	ChessBoard board;
+	
+	
+	public ChessDisplayGUI(ChessManager cm)
+	{
+		this.cm = cm;
+		initComponents();
+	}
+	
+	public void initComponents()
+	{
+		JFrame frame = new JFrame("Chess Master Of Chess");
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frame.setPreferredSize(new Dimension((ChessBoard.squareDimension * ChessManager.WIDTH) + 5, (ChessBoard.squareDimension * ChessManager.HEIGHT) + 25)); 
+		//frame.setPreferredSize(new Dimension(815, 835));
+		frame.setResizable(false);
+		board = new ChessBoard(cm);
+		//board.addMouseListener(new MouseControl());
+		frame.add(board);
+		
+		frame.setVisible(true);
+		frame.pack();
+	}
+	
+	public void repaint()
+	{
+		board.repaint();
+	}
+}

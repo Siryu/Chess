@@ -1,0 +1,253 @@
+package View;
+
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.util.ArrayList;
+import java.util.Map.Entry;
+import java.util.Observable;
+import java.util.Observer;
+
+import javax.swing.JPanel;
+import javax.swing.Timer;
+
+import Control.ChessManager;
+import Control.MouseControl;
+import Helper.Location;
+import Model.King;
+import Model.Pawn;
+import Model.Piece;
+
+@SuppressWarnings("serial")
+public class ChessBoard extends JPanel implements Observer
+{
+	public static final int squareDimension = 115;
+	
+	Square[] squares;
+	ChessManager cm;
+	MouseControl mouseControl;
+	Location selectedPiece;
+	private Color transparentGreen = new Color(0, 255, 0, 200);
+	private Color transparentRed = new Color(255, 0, 0, 150);
+	private Color transparentBlue = new Color(0, 100, 220, 220);
+	private boolean scrolling = false;
+	private boolean hasScrolled = false;
+	private int scrollingX = 0;
+	private String scrollString = "";
+	private boolean pieceDeclared = false;
+	Timer t = new Timer(50, new ActionListener() {
+		
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			repaint();
+		}
+	});
+	
+	public ChessBoard(ChessManager cm, MouseControl mouse)
+	{
+		this.cm = cm;
+		this.mouseControl = mouse;
+		mouseControl.addObserver(this);
+		squares = new Square[ChessManager.WIDTH * ChessManager.HEIGHT];
+		for(int j = 0; j < ChessManager.HEIGHT; j ++)
+		{
+			for(int i = 0; i < ChessManager.WIDTH; i++)
+			{
+				squares[(j * ChessManager.HEIGHT) + i] = new Square(ChessBoard.squareDimension * i, 
+						ChessBoard.squareDimension * j, ((j * 3 + i) % 2 == 0 ? false : true));
+			}
+		}
+	}
+	
+	@Override
+	public void paintComponent(Graphics g)
+	{
+		super.paintComponent(g);
+		// draw squares here
+		for(Square s : squares)
+		{
+			s.draw(g);
+		}
+		
+		// draw coordinates on the board here
+		g.setColor(Color.RED);
+		Font f = new Font("", Font.BOLD, 20);
+		g.setFont(f);
+		char[] codes = new char[]{'a','b','c','d','e','f','g','h'};
+		for(int j = 0; j < ChessManager.WIDTH; j++)
+		{
+			g.drawChars(codes, j, 1,  ChessBoard.squareDimension * j + 
+					(int)(ChessBoard.squareDimension *0.5f), 
+					(ChessBoard.squareDimension * (ChessManager.HEIGHT - 1)) + 
+					(int)(ChessBoard.squareDimension * 0.9f) + 30);
+			g.drawString("" + (ChessManager.HEIGHT - j), 
+					(ChessBoard.squareDimension * (ChessManager.WIDTH - 1)) + 
+					(int)(ChessBoard.squareDimension * 0.9f) + 25, ChessBoard.squareDimension * j + 
+					ChessBoard.squareDimension / 2);
+		}
+		
+		// draw out the pieces here with squares changed if no piece is selected
+		ArrayList<Entry<Location, Piece>> piecent  = new ArrayList<Entry<Location, Piece>>();
+		piecent.addAll(cm.getPieces().entrySet());
+		
+		if(selectedPiece == null)
+		{			
+			for(Entry<Location, Piece> e : piecent)
+			{
+				if(cm.isWhiteTurn() == !e.getValue().getColor() && 
+						cm.getModifiedMoves(cm.getPieceMoves(e.getKey()), e.getKey()).size() > 0)
+				{
+					g.setColor(new Color(0, 255, 0, 200));
+					g.fillRect((e.getKey().getX() - 1) * ChessBoard.squareDimension, 
+							Math.abs(e.getKey().getY() - 1 - 7) * ChessBoard.squareDimension, 
+							ChessBoard.squareDimension, ChessBoard.squareDimension);	
+				}	
+			}
+		}
+		
+		// draw out the pieces here with squares changed if piece is selected.
+		else if(selectedPiece != null)
+		{
+			g.setColor(this.transparentBlue);
+			g.fillRect((selectedPiece.getX() - 1) * ChessBoard.squareDimension, 
+					Math.abs(selectedPiece.getY() - 1 - 7) * ChessBoard.squareDimension, 
+					ChessBoard.squareDimension, ChessBoard.squareDimension);
+			
+			g.setColor(this.transparentGreen);
+			for(Location l : cm.getModifiedMoves(cm.getPieceMoves(selectedPiece), selectedPiece))
+			{
+				// set alpha level in here
+				g.fillRect((l.getX() - 1) * ChessBoard.squareDimension, 
+						Math.abs(l.getY() - 1 - 7) * ChessBoard.squareDimension, 
+					ChessBoard.squareDimension, ChessBoard.squareDimension);
+			}
+		}	
+		for(Entry<Location, Piece> e : piecent)
+		{
+			g.drawImage(e.getValue().getPiecePicture(), (e.getKey().getX() - 1) * ChessBoard.squareDimension, 
+					Math.abs(e.getKey().getY() - 1 - 7) * ChessBoard.squareDimension, 
+					ChessBoard.squareDimension, ChessBoard.squareDimension, null);
+		}
+		
+		g.setColor(this.transparentRed);
+		g.setFont(new Font("TimesRoman", Font.PLAIN, ChessBoard.squareDimension / 2));
+		
+		// important messages
+		if(!scrolling && !hasScrolled && cm.isInCheckMate())
+		{
+			//g.drawString("CheckMate " + (!cm.isWhiteTurn() ? "WHITE wins!" : "BLACK wins!"), 
+				//	ChessBoard.squareDimension, (ChessManager.HEIGHT * ChessBoard.squareDimension) / 2);
+			scroller("CheckMate: " + (!cm.isWhiteTurn() ? "WHITE wins!" : "BLACK wins!"));
+		}
+		else if(!scrolling && !hasScrolled && cm.isInStaleMate())
+		{
+			//g.drawString("StaleMate!", ChessBoard.squareDimension, 
+				//	(ChessManager.HEIGHT * ChessBoard.squareDimension) / 2);
+			scroller("StaleMate!");
+		}
+		else if(!scrolling && !hasScrolled && cm.isInCheck())
+		{
+			//g.drawString("You're in check!", ChessBoard.squareDimension, 
+				//	(ChessManager.HEIGHT * ChessBoard.squareDimension) / 2);
+			scroller("You're in check!");
+		} else if(scrolling) {
+			if(scrollingX > ChessBoard.squareDimension * ChessManager.WIDTH + 25) {
+				t.stop();
+				scrolling = false;
+				hasScrolled = true;
+				repaint();
+			}
+		} else {
+			hasScrolled = false;
+		}
+		scrollDraw(g);
+	}
+	
+	private void scroller(String s) {
+		scrolling = true;
+		scrollString = s;
+		scrollingX = 0;
+		t.start();
+	}
+	
+	private void scrollDraw(Graphics g) {
+		g.setFont(new Font("TimesRoman", Font.PLAIN, ChessBoard.squareDimension / 2));
+		scrollingX += 15;
+		g.setColor(transparentRed);
+		g.drawString(scrollString, scrollingX, ChessBoard.squareDimension * ChessManager.HEIGHT / 2);
+	}
+	
+	
+	private void sendMove(Location start, Location end)
+	{
+			StringBuilder moveString = new StringBuilder();
+			
+			moveString.append(start.toString() + " " + end.toString());
+			
+			Piece p = cm.getPieces().get(start);
+			int color = cm.getPieces().get(start).getColor() ? 1 : -1 ;
+			boolean sendMove = true;
+			//pawn promotion
+			if(p instanceof Pawn && (end.getY() == 8 || end.getY() == 1)) {
+				Popup pop = new Popup();
+				pop.askPiece(cm.getPieces().get(start).getColor(), start, end, cm);
+				sendMove = false;
+			}
+			// en passant
+			else if(cm.getPieces().get(end) != null || (p instanceof Pawn && cm.getPieces().get(new Location(end.getX(), end.getY() + (1 * color))) instanceof Pawn &&
+					p.getColor() != cm.getPieces().get(new Location(end.getX(), end.getY() + (1 * color))).getColor()))
+			{
+				moveString.append("*");
+			}
+			
+			// castling
+			else if(p instanceof King && Math.abs(start.difference(end).getX()) == 2)
+			{
+				if(start.difference(end).getX() < 0)
+				{
+					moveString.append(" h" + start.getY() + " f" + start.getY()); // h8 f8
+				}
+				else if(start.difference(end).getX() > 0)
+				{
+					moveString.append(" a" + start.getY() + " d" + start.getY());
+				}
+			}  
+			if(sendMove) {
+				cm.recievePlay(moveString.toString());
+			}
+	}
+
+	@Override
+	public void update(Observable o, Object arg1)
+	{
+		MouseControl mc = (MouseControl) o;
+		if(!mc.newClick()) {
+			Location movePieceTo = null;
+			int mouseClickX = (mc.getLastClickX() / ChessBoard.squareDimension) + 1;
+			int mouseClickY = Math.abs(((mc.getLastClickY() / ChessBoard.squareDimension)) - 8);
+			Location clicked = new Location(mouseClickX, mouseClickY);
+			Piece p = cm.getPieces().get(clicked);
+			
+			if(selectedPiece != null && cm.getModifiedMoves(cm.getPieceMoves(selectedPiece), selectedPiece).contains(clicked))
+			{
+				movePieceTo = clicked;
+				p = null;
+				sendMove(selectedPiece, movePieceTo);
+				
+				selectedPiece = null;
+			}
+			else if(p != null && p.getColor() != cm.isWhiteTurn() && cm.getPieces().containsKey(clicked))
+			{
+				selectedPiece = clicked;			
+			}	
+			else
+			{
+				selectedPiece = null;
+			}
+			
+			this.repaint();
+		}
+	}
+}

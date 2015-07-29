@@ -1,0 +1,179 @@
+package Control;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+
+import Helper.Location;
+import Model.Bishop;
+import Model.King;
+import Model.Knight;
+import Model.Pawn;
+import Model.Piece;
+import Model.Queen;
+import Model.Rook;
+
+public class MoveDecrypter
+{
+	ArrayList<BoardBehavior> behaviors = new ArrayList<BoardBehavior>(); 
+	
+	private final String newPiecePattern = "[qkrbnp][ld][a-h][1-8]";
+	private final String enPassantPattern = "\\b[a-h][1-8] [a-h][1-8]\\!";
+	private final String pawnPromotionPattern = "\\b[a-h][1-8] [qkrbnp][ld][a-h][1-8]\\*?";
+	private final String movePiecePattern = "\\b[a-h][1-8] [a-h][1-8]\\b";
+	private final String capturePiecePattern = "\\b[a-h][1-8] [a-h][1-8]\\*";
+	private final String castlingPattern = "\\b([e]1 [cg]1 [ah]1 [fd]1)|([e]8 [cg]8 [ah]8 [fd]8)\\b";
+	
+	public MoveDecrypter(String line) throws IOException
+	{
+		parse(line);
+    }
+
+	public MoveDecrypter(File loadFile) throws IOException
+	{
+		try(BufferedReader reader = new BufferedReader(new FileReader(loadFile)))
+		{
+	        String line = "a";
+			
+	        while((line = reader.readLine()) != null)
+	        {
+	        	parse(line);	        
+			}	
+		}
+	}
+	
+	private void parse(String line)
+	{
+		try
+		{
+			line = line.toLowerCase();
+			
+			String[] orders = new String[line.length()];
+			
+			for(int j = 0; j < line.length(); j++)
+			{
+				orders[j] = line.substring(j, j + 1); 
+			}
+			
+			if(!line.trim().contains(" "))
+			{
+				if(line.matches(newPiecePattern))
+				{
+					boolean isBlack;
+					
+					isBlack = orders[1].equals("l") ? false : true;
+					
+					PieceType pt = PieceType.valueOf(orders[0].toUpperCase());
+					
+					behaviors.add(new CreateBehavior(pt.createPiece(isBlack), orders[2].charAt(0), Integer.parseInt(orders[3])));
+				}
+				else
+				{
+					throw new IOException("invalid line of text in file.");
+				}
+			}
+			else
+			{
+				// strictly moving a piece from one location to another
+				if(orders.length == 5 && line.matches(movePiecePattern))
+				{							
+					Location startPoint = new Location(orders[0].charAt(0), Integer.parseInt(orders[1]));
+					Location endPoint = new Location(orders[3].charAt(0), Integer.parseInt(orders[4]));
+					behaviors.add(new MoveBehavior(startPoint, endPoint));
+				}
+				// moving a piece to capture another piece
+				else if(orders.length == 6 && line.matches(enPassantPattern))
+				{
+					Location startPoint = new Location(orders[0].charAt(0), Integer.parseInt(orders[1]));
+					Location endPoint = new Location(orders[3].charAt(0), Integer.parseInt(orders[4]));
+					behaviors.add(new EnPassantBehavior(startPoint, endPoint));
+				}
+				else if(orders.length == 6 && line.matches(capturePiecePattern))
+				{
+					Location startPoint = new Location(orders[0].charAt(0), Integer.parseInt(orders[1]));
+					Location endPoint = new Location(orders[3].charAt(0), Integer.parseInt(orders[4]));
+					behaviors.add(new CaptureBehavior(startPoint, endPoint));
+				}
+				//pawn promotion
+				else if(orders.length > 6 && line.matches(pawnPromotionPattern))
+				{
+					Location pawnStartPoint = new Location(orders[0].charAt(0), Integer.parseInt(orders[1]));
+					Location promotionPoint = new Location(orders[5].charAt(0), Integer.parseInt(orders[6]));
+					
+					boolean isBlack = orders[4].equals("l") ? false : true;
+					
+					PieceType pt = PieceType.valueOf(orders[3].toUpperCase());
+					boolean isCapture = orders[orders.length - 1].charAt(0) == '*';
+					behaviors.add(new PawnPromotionBehavior(pawnStartPoint, promotionPoint, pt.createPiece(isBlack), isCapture));
+				}
+				// castling orders.
+				else if(orders.length > 6 && line.matches(castlingPattern))
+				{
+					Location kingStartPoint = new Location(orders[0].charAt(0), Integer.parseInt(orders[1]));
+					Location kingEndPoint = new Location(orders[3].charAt(0), Integer.parseInt(orders[4]));
+					Location rookStartPoint = new Location(orders[6].charAt(0), Integer.parseInt(orders[7]));
+					Location rookEndPoint = new Location(orders[9].charAt(0), Integer.parseInt(orders[10]));
+					behaviors.add(new CastleBehavior(kingStartPoint, kingEndPoint, rookStartPoint, rookEndPoint));
+				}
+				else
+				{
+					throw new IOException("Invalid format on line.");
+				}
+			}	
+		} 
+		catch (IOException e)
+		{
+			System.err.println("Piece can't move like that...");
+		}	
+	}
+	
+	public ArrayList<BoardBehavior> getBehaviors()
+	{
+		return behaviors;
+	}
+	
+	
+	public enum PieceType
+	{
+		Q {
+			@Override
+			protected Piece createPiece(boolean isBlack)
+			{
+				return new Queen(isBlack);
+			}
+		}, B {
+			@Override
+			protected Piece createPiece(boolean isBlack)
+			{
+				return new Bishop(isBlack);
+			}
+		}, N {
+			@Override
+			protected Piece createPiece(boolean isBlack)
+			{
+				return new Knight(isBlack);
+			}
+		}, R {
+			@Override
+			protected Piece createPiece(boolean isBlack)
+			{
+				return new Rook(isBlack);
+			}
+		}, K {
+			@Override
+			protected Piece createPiece(boolean isBlack)
+			{
+				return new King(isBlack);
+			}
+		}, P {
+			@Override
+			protected Piece createPiece(boolean isBlack)
+			{
+				return new Pawn(isBlack);
+			}
+		};
+		protected abstract Piece createPiece(boolean isBlack);
+	}
+}
